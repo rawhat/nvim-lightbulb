@@ -25,6 +25,8 @@
 local lsp_util = require("vim.lsp.util")
 local lightbulb_config = require("nvim-lightbulb.config")
 
+local get_lsp_active_clients = vim.fn.has("nvim-0.10") == 1 and vim.lsp.get_clients or vim.lsp.get_active_clients
+
 local NvimLightbulb = {}
 
 local LIGHTBULB_NS = vim.api.nvim_create_namespace("nvim-lightbulb")
@@ -67,13 +69,21 @@ local function update_float(opts, position, bufnr)
     vim.api.nvim_win_close(existing_float, true)
   end
 
+  local set_window_opt = function(win_id, name, value)
+    if vim.fn.has("0.10") then
+      vim.api.nvim_set_option_value(name, value, { win = win_id })
+    else
+      vim.api.nvim_win_set_option(win_id, name, value)
+    end
+  end
+
   -- Open the window and set highlight
   local _, lightbulb_win = lsp_util.open_floating_preview({ opts.text }, "plaintext", opts.win_opts)
-  vim.api.nvim_win_set_option(lightbulb_win, "winhl", "Normal:" .. opts.hl)
+  set_window_opt(lightbulb_win, "winhl", "Normal:" .. opts.hl)
 
   -- Set float transparency
   if opts.win_opts["winblend"] ~= nil then
-    vim.api.nvim_win_set_option(lightbulb_win, "winblend", opts.win_opts.winblend)
+    set_window_opt(lightbulb_win, "winblend", opts.win_opts.winblend)
   end
 
   vim.b[bufnr].lightbulb_floating_window = lightbulb_win
@@ -234,7 +244,7 @@ NvimLightbulb.update_lightbulb = function(config)
 
   -- Check for code action capability
   local code_action_cap_found = false
-  for _, client in pairs(vim.lsp.get_active_clients({ bufnr = bufnr })) do
+  for _, client in pairs(get_lsp_active_clients({ bufnr = bufnr })) do
     if client and client.supports_method("textDocument/codeAction") then
       -- If it is ignored, add the id to the ignore table for the handler
       if ignored_clients[client.name] then
@@ -343,7 +353,7 @@ NvimLightbulb.debug = function(config)
   local code_action_servers = {}
   local ignored_servers = {}
 
-  for _, client in pairs(vim.lsp.get_active_clients({ bufnr = bufnr })) do
+  for _, client in pairs(get_lsp_active_clients({ bufnr = bufnr })) do
     if client and client.supports_method("textDocument/codeAction") then
       client_id_to_name[client.id] = client.name
 
